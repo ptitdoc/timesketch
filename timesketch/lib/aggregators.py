@@ -58,14 +58,7 @@ def heatmap(es_client, sketch_id, query_string, query_filter, query_dsl,
     aggregation = {
         u'byDay': {
             u'terms': {
-                u'script': {
-                    u'file': 'dateaggregation',
-                    u'lang': 'groovy',
-                    u'params': {
-                        u'date_field': 'datetime',
-                        u'format': 'EE'
-                    }
-                }
+                u'script': u'doc.datetime.value.toString(\'EE\')'
             },
             u'aggs': {
                 u'byHour': {
@@ -73,14 +66,7 @@ def heatmap(es_client, sketch_id, query_string, query_filter, query_dsl,
                         u'order': {
                             u'_term': 'asc'
                         },
-                        u'script': {
-                            u'file': 'dateaggregation',
-                            u'lang': 'groovy',
-                            u'params': {
-                                u'date_field': 'datetime',
-                                u'format': 'HH'
-                            }
-                        },
+                        u'script': u'doc.datetime.value.getHourOfDay()',
                         u'size': 24
                     }
                 }
