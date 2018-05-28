@@ -397,16 +397,35 @@ class ElasticsearchDataStore(object):
         script_name = u'add_label'
         if toggle:
             script_name = u'toggle_label'
+
+        script_code = {
+            'add_label': """
+if( ! ctx._source.timesketch_label.contains (params.timesketch_label)) {
+    ctx._source.timesketch_label.add(params.timesketch_label)
+}
+""",
+            'toggle_label': """
+if(ctx._source.timesketch_label.contains(params.timesketch_label)) {
+    for (int i = 0; i < ctx._source.timesketch_label.size(); i++) {
+      if (ctx._source.timesketch_label[i] == params.timesketch_label) {
+        ctx._source.timesketch_label.remove(i)
+      }
+      i++;
+    }
+} else {
+    ctx._source.timesketch_label.add(params.timesketch_label)
+}
+"""
+        }
+
         script = {
-            u'script': {
-                u'lang': u'groovy',
-                u'file': script_name,
-                u'params': {
-                    u'timesketch_label': {
-                        u'name': str(label),
-                        u'user_id': user_id,
-                        u'sketch_id': sketch_id
-                    }
+            u'lang': u'painless',
+            u'source': script_code[script_name],
+            u'params': {
+                u'timesketch_label': {
+                    u'name': str(label),
+                    u'user_id': user_id,
+                    u'sketch_id': sketch_id
                 }
             }
         }
@@ -414,7 +433,10 @@ class ElasticsearchDataStore(object):
             index=searchindex_id,
             id=event_id,
             doc_type=event_type,
-            body=script)
+            body={
+                u'script': script
+            }
+        )
 
     def create_index(self, index_name=uuid4().hex, doc_type=u'generic_event'):
         """Create index with Timesketch settings.
