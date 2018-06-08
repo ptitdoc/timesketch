@@ -84,6 +84,16 @@ def run_plaso(source_file_path, timeline_name, index_name, source_type,
         timeline_name, u'--status_view', u'none', u'--index', index_name
     ]
 
+    # Parse list of analysis plugins to run and add it to psort command line
+    # TODO: Feed list of plugins from options
+    analysis_plugins = [ u'tagging' ]
+    analysis_plugins_opts = [u'--tagging-file',u'/usr/share/plaso/tag_windows.txt']
+    if analysis_plugins:
+        cmd.append(u'--analysis')
+        cmd.append(u','.join(analysis_plugins))
+        if analysis_plugins_opts:
+            cmd.extend(analysis_plugins_opts)
+
     if username:
         cmd.append(u'--username')
         cmd.append(username)
