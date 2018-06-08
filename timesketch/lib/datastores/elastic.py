@@ -62,6 +62,7 @@ class ElasticsearchDataStore(object):
         query_dict = {
             u'query': {
                 u'nested': {
+                    u'path': u"timesketch_label",
                     u'query': {
                         u'bool': {
                             u'must': [{
@@ -398,7 +399,22 @@ class ElasticsearchDataStore(object):
         if toggle:
             script_name = u'toggle_label'
 
-        script_code = {
+        script_code_groovy = {
+            'add_label': """
+if( ! ctx._source.timesketch_label.contains (timesketch_label)) {
+    ctx._source.timesketch_label += timesketch_label
+}
+""",
+            'toggle_label': """
+if(ctx._source.timesketch_label.contains (timesketch_label)) {
+    ctx._source.timesketch_label.remove(timesketch_label)
+} else {
+    ctx._source.timesketch_label += timesketch_label
+}
+"""
+        }
+
+        script_code_painless = {
             'add_label': """
 if( ! ctx._source.timesketch_label.contains (params.timesketch_label)) {
     ctx._source.timesketch_label.add(params.timesketch_label)
@@ -418,17 +434,31 @@ if(ctx._source.timesketch_label.contains(params.timesketch_label)) {
 """
         }
 
-        script = {
-            u'lang': u'painless',
-            u'source': script_code[script_name],
-            u'params': {
-                u'timesketch_label': {
-                    u'name': str(label),
-                    u'user_id': user_id,
-                    u'sketch_id': sketch_id
+        if int(self.client.info()["version"]["number"].split(".")[0]) >= 6:
+            script = {
+                u'lang': u'painless',
+                u'source': script_code_painless[script_name],
+                u'params': {
+                    u'timesketch_label': {
+                        u'name': str(label),
+                        u'user_id': user_id,
+                        u'sketch_id': sketch_id
+                    }
                 }
             }
-        }
+        else:
+            script = {
+                u'lang': u'groovy',
+                u'source': script_code_groovy[script_name],
+                u'params': {
+                    u'timesketch_label': {
+                        u'name': str(label),
+                        u'user_id': user_id,
+                        u'sketch_id': sketch_id
+                    }
+                }
+            }
+
         self.client.update(
             index=searchindex_id,
             id=event_id,
